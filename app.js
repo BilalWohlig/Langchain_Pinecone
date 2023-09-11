@@ -11,6 +11,7 @@ const helmet = require('helmet')
 const authMiddleware = require('./middlewares/auth/authentication')
 const numCPUs = __config.clusterNumber || 0
 const fs = require('fs')
+const fileUpload = require('express-fileupload')
 
 class httpApiWorker {
   constructor () {
@@ -35,7 +36,7 @@ class httpApiWorker {
     vm.app.use(helmet({
       noCache: true
     }))
-
+    vm.app.use(fileUpload())
     const sixtyDaysInSeconds = 5184000
     vm.app.use(helmet.hsts({
       maxAge: sixtyDaysInSeconds
