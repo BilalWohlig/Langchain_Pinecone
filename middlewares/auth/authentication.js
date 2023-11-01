@@ -3,8 +3,9 @@ const passport = require('passport')
 const JwtStrategy = require('passport-jwt').Strategy
 const ExtractJwt = require('passport-jwt').ExtractJwt
 const authConfig = require('../../config').authentication
+const User = require('../../mongooseSchema/User')
 
-const cookieTokenExtractor = req => {
+const cookieTokenExtractor = (req) => {
   let token = null
   if (req && req.cookies) {
     token = req.cookies.jwt
@@ -30,9 +31,14 @@ const authHeaderTokenExtractor = req => {
 }
 
 const setJwtStrategy = opts => {
-  passport.use(new JwtStrategy(opts, (jwtPayload, done) => {
-    // custom security validation
-    return done(null, jwtPayload.data)
+  passport.use(new JwtStrategy(opts, async (jwtPayload, done) => {
+    try {
+      const user = await User.findOne({ _id: jwtPayload.data.id })
+      if (!user) return done(null, false)
+      return done(null, jwtPayload.data)
+    } catch (error) {
+      return done(error, false)
+    }
   }))
 }
 
