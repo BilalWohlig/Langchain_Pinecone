@@ -25,8 +25,7 @@ const validationSchema = {
     type: 'object',
     required: true,
     properties: {
-        id: { type: 'ObjectId', required: true }
-
+        id: { type: 'string', format: 'objectId', required: true }
     }
 }
 const validation = (req, res, next) => {
