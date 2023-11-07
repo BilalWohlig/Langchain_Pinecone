@@ -3,6 +3,8 @@ const router = express.Router()
 const __constants = require('../../config/constants')
 const validationOfAPI = require('../../middlewares/validation')
 const Pinecone = require('../../services/pinecone/pineconeMethods')
+const authorize = require('../../middlewares/auth/authentication')
+
 // const cache = require('../../middlewares/requestCacheMiddleware') // uncomment the statement whenever the redis cache is in use.
 
 /**
@@ -42,6 +44,8 @@ const createPrompt = async (req, res) => {
   }
 }
 
-router.post('/createPrompt', validation, createPrompt)
+router.post('/createPrompt',
+  authorize.authenticate("jwt", { session: false }),
+  validation, createPrompt)
 // router.post('/postPing', cache.route(100), validation, ping) // example for redis cache in routes
 module.exports = router
