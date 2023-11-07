@@ -31,7 +31,7 @@ const validationSchema = {
 const validation = (req, res, next) => {
     return validationOfAPI(req, res, next, validationSchema, 'body')
 }
-const updateRole = async (req, res) => {
+const deleteRole = async (req, res) => {
     try {
         const updateRole = await Role.deleteRole(req.body)
         res.sendJson({ type: __constants.RESPONSE_MESSAGES.SUCCESS, data: updateRole })
@@ -39,6 +39,6 @@ const updateRole = async (req, res) => {
         return res.sendJson({ type: err.type || __constants.RESPONSE_MESSAGES.SERVER_ERROR, err: err.err || err })
     }
 }
-router.post('/delete', validation, updateRole)
+router.post('/delete', validation, deleteRole)
 // router.get('/getPing', cache.route(100), validation, ping) // example for redis cache in routes
 module.exports = router
