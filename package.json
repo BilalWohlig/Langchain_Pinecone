@@ -14,7 +14,8 @@
     },
     "watch": [
       "controllers",
-      "routes"
+      "routes",
+      "services"
     ],
     "events": {
       "restart": "user -k 3005/tcp;"

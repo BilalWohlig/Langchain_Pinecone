@@ -176,6 +176,11 @@ module.exports = {
     code: 3025,
     message: 'Fail to redirect payload'
   },
+  ALREADY_EXISTS: {
+    status_code: 409,
+    code: 3017,
+    message: 'The data already exists'
+  },
   LIMIT_EXCEEDED: {
     status_code: 400,
     code: 3033,
