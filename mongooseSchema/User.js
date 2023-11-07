@@ -4,13 +4,16 @@ const Schema = mongoose.Schema
 const schema = new Schema(
   {
     username: {
-      type: String
+      type: String,
+      required: true
     },
     email: {
-      type: String
+      type: String,
+      required: true
     },
     password: {
-      type: String
+      type: String,
+      required: true
     },
     firstName: {
       type: String,
@@ -19,6 +22,11 @@ const schema = new Schema(
     lastName: {
       type: String,
       trim: true
+    },
+    role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Role',
+      required: true
     }
   },
   { timestamps: true }
