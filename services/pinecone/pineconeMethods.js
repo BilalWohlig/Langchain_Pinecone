@@ -140,18 +140,28 @@ class Pinecone {
       } else {
         rawData = await pdfParse(documentData)
         const num = count + 1
-        data.push({
-          id: num.toString(),
-          context: rawData.text.trim()
-        })
+        data.push(rawData.text.trim())
       }
       const index = pinecone.Index(index_name)
       const batch_size = 50
-      for (let i = 0; i < data.length; i += batch_size) {
-        const i_end = Math.min(data.length, i + batch_size)
-        const meta_batch = data.slice(i, i_end)
+      const langchainContext = data.join(' ')
+      const splitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200
+      })
+      const docs = await splitter.splitDocuments([
+        new Document({ pageContent: langchainContext })
+      ])
+      docs.forEach((doc) => {
+        const num = count + 1;
+        doc.id = num.toString();
+        count = count + 1;
+      });
+      for (let i = 0; i < docs.length; i += batch_size) {
+        const i_end = Math.min(docs.length, i + batch_size)
+        const meta_batch = docs.slice(i, i_end)
         const ids_batch = meta_batch.map((x) => x.id)
-        const texts_batch = meta_batch.map((x) => x.context)
+        const texts_batch = meta_batch.map((x) => x.pageContent)
         let response
         try {
           response = await openai.createEmbedding({
