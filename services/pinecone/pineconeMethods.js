@@ -140,18 +140,28 @@ class Pinecone {
       } else {
         rawData = await pdfParse(documentData)
         const num = count + 1
-        data.push({
-          id: num.toString(),
-          context: rawData.text.trim()
-        })
+        data.push(rawData.text.trim())
       }
       const index = pinecone.Index(index_name)
       const batch_size = 50
-      for (let i = 0; i < data.length; i += batch_size) {
-        const i_end = Math.min(data.length, i + batch_size)
-        const meta_batch = data.slice(i, i_end)
+      const langchainContext = data.join(' ')
+      const splitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200
+      })
+      const docs = await splitter.splitDocuments([
+        new Document({ pageContent: langchainContext })
+      ])
+      docs.forEach((doc) => {
+        const num = count + 1;
+        doc.id = num.toString();
+        count = count + 1;
+      });
+      for (let i = 0; i < docs.length; i += batch_size) {
+        const i_end = Math.min(docs.length, i + batch_size)
+        const meta_batch = docs.slice(i, i_end)
         const ids_batch = meta_batch.map((x) => x.id)
-        const texts_batch = meta_batch.map((x) => x.context)
+        const texts_batch = meta_batch.map((x) => x.pageContent)
         let response
         try {
           response = await openai.createEmbedding({
@@ -174,7 +184,7 @@ class Pinecone {
         }
         const embeds = response.data.data.map((record) => record.embedding)
         const meta_batch_cleaned = meta_batch.map((x) => ({
-          context: x.context
+          context: x.pageContent
         }))
         const to_upsert = ids_batch.map((id, i) => ({
           id: id,
@@ -194,27 +204,33 @@ class Pinecone {
     }
   }
 
-  async getRelevantContexts (index_name, question, contextNamespace) {
-    const index = pinecone.Index(index_name)
-    let response = await openai.createEmbedding({
-      model: 'text-embedding-ada-002',
-      input: question
-    })
-    const xq = response.data.data[0].embedding
-    response = await index.query({
-      queryRequest: {
-        namespace: contextNamespace,
-        vector: xq,
-        topK: 2,
-        includeMetadata: true
-        // includeValues: true
+  async getRelevantContexts (index_name, question, namespace) {
+    try {
+      const index = pinecone.Index(index_name)
+      let response = await openai.createEmbedding({
+        model: 'text-embedding-ada-002',
+        input: question
+      })
+      const xq = response.data.data[0].embedding
+      response = await index.query({
+        queryRequest: {
+          namespace: namespace,
+          vector: xq,
+          topK: 2,
+          includeMetadata: true,
+          // includeValues: true
+        }
+      })
+      
+      const contexts = response.matches.map((match) => match.metadata.context)
+      return {
+        queryEmbedding: xq,
+        docContexts: contexts,
+        namespace: namespace
       }
-    })
-    const contexts = response.matches.map((match) => match.metadata.context)
-    return {
-      queryEmbedding: xq,
-      docContexts: contexts,
-      namespace: contextNamespace
+    } catch (error) {
+      console.log('Error in getRelevantContexts function :: err', error)
+      throw new Error(error)
     }
   }
 
