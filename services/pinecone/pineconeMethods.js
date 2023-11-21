@@ -126,6 +126,10 @@ class Pinecone {
       let count = vectorCount
       const data = []
       let rawData
+      let sizeLimit = 10485760
+      if (documentData.size > sizeLimit) {
+        throw "File size exceeds the maximum limit"
+      }
       if (documentData.length != undefined) {
         for (let i = 0; i < documentData.length; i++) {
           const doc = documentData[i]
@@ -146,7 +150,7 @@ class Pinecone {
       const batch_size = 50
       const langchainContext = data.join(' ')
       const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
+        chunkSize: 3000,
         chunkOverlap: 200
       })
       const docs = await splitter.splitDocuments([
@@ -216,16 +220,19 @@ class Pinecone {
         queryRequest: {
           namespace: namespace,
           vector: xq,
-          topK: 2,
+          topK: 5,
           includeMetadata: true,
           // includeValues: true
         }
       })
       
       const contexts = response.matches.map((match) => match.metadata.context)
+      const clubContext = contexts.filter(function (str) {
+        return str !== undefined;
+      }).join('');
       return {
         queryEmbedding: xq,
-        docContexts: contexts,
+        docContexts: clubContext,
         namespace: namespace
       }
     } catch (error) {
@@ -321,16 +328,11 @@ class Pinecone {
       messages: [
         {
           role: 'system',
-          content: 'Answer the question based on the context below'
+          content: 'You are a helpful assistant that provides information base on give context.'
         },
         {
           role: 'user',
-          content: `Context: ${context}
-                    Question: ${question}`
-        },
-        {
-          role: 'assistant',
-          content: 'Answer: '
+          content: `Context: ${context}\nQuestion: ${question}`
         }
       ]
     })
