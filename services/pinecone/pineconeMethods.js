@@ -237,6 +237,11 @@ class Pinecone {
         model: 'text-embedding-ada-002',
         input: question
       })
+      if(!response) throw {
+        type:  __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to create embeddings of question"
+      }
+
       const xq = response.data.data[0].embedding
       response = await index.query({
         queryRequest: {
@@ -257,9 +262,9 @@ class Pinecone {
         docContexts: clubContext,
         namespace: namespace
       }
-    } catch (error) {
-      console.log('Error in getRelevantContexts function :: err', error)
-      throw new Error(error)
+    } catch (err) {
+      console.log('Error in getRelevantContexts::', err)
+      throw err
     }
   }
 
@@ -345,27 +350,36 @@ class Pinecone {
   }
 
   async askChatGPT (context, question) {
-    const response = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that provides information base on give context.'
-        },
-        {
-          role: 'user',
-          content: `Context: ${context}\nQuestion: ${question}`
-        }
-      ]
-    })
-    // const response = await openai.createCompletion({
-    //   model: "text-davinci-003",
-    //   prompt: `${prompt}`,
-    //   max_tokens: 500,
-    //   temperature: 0,
-    //   top_p: 1,
-    // });
-    return response.data
+    try {
+      const response = await openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that provides information base on give context.'
+          },
+          {
+            role: 'user',
+            content: `Context: ${context}\nQuestion: ${question}`
+          }
+        ]
+      })
+      if(!response) throw {
+        type:  __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to get information form openai"
+      }
+      // const response = await openai.createCompletion({
+      //   model: "text-davinci-003",
+      //   prompt: `${prompt}`,
+      //   max_tokens: 500,
+      //   temperature: 0,
+      //   top_p: 1,
+      // });
+      return response.data
+    } catch (err) {
+      throw err
+    }
+    
   }
 }
 

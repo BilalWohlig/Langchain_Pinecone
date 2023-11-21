@@ -28,8 +28,8 @@ const validationSchema = {
   required: true,
   additionalProperties: false,
   properties: {
-    indexName: { type: 'string', required: true, minLength: 3, maxLength:30 },
-    namespace: { type: 'string', required: true, minLength: 3, maxLength:30 }
+    indexName: { type: 'string', required: true, minLength: 3, maxLength:50 },
+    namespace: { type: 'string', required: true, minLength: 3, maxLength:50 }
   }
 }
 const validation = (req, res, next) => {
