@@ -46,14 +46,19 @@ class Pinecone {
     }
   }
 
-  async deleteAllVectorsFromNamespace (indexName, namespace) {
-    const index = pinecone.Index(indexName)
-    console.log('Hey')
-    await index.delete1({
-      namespace: namespace,
-      deleteAll: true
-    })
-    return `Successfully Deleted All Vectors from Namespace ${namespace}`
+  async deleteAllVectorsFromNamespace(indexName, namespace) {
+    try {
+      const index = pinecone.Index(indexName)
+      await index.delete1({
+        namespace: namespace,
+        deleteAll: true
+      })
+      return `Successfully Deleted All Vectors from Namespace ${namespace}`
+    } catch (err) {
+      console.log("Error in deleteAllVectorsFromNamespace::", err)
+      throw err
+    }
+
   }
 
   async getIndex (index_name) {
