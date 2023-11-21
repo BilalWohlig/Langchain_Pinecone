@@ -26,9 +26,10 @@ const authorize = require('../../middlewares/auth/authentication')
 const validationSchema = {
   type: 'object',
   required: true,
+  additionalProperties: false,
   properties: {
-    indexName: { type: 'string', required: true, minLength: 3 },
-    namespace: { type: 'string', required: true, minLength: 3 }
+    indexName: { type: 'string', required: true, minLength: 3, maxLength:30 },
+    namespace: { type: 'string', required: true, minLength: 3, maxLength:30 }
   }
 }
 const validation = (req, res, next) => {
@@ -36,6 +37,7 @@ const validation = (req, res, next) => {
 }
 const pushData = async (req, res) => {
   try {
+    if(!req.files) throw {type: __constants.RESPONSE_MESSAGES.PROVIDE_FILE, err: 'No file uploaded' }
     const namespaceVectorCount = await Pinecone.getNumberOfVectorsInNamespace(req.body.indexName, req.body.namespace)
     const data = await Pinecone.pushDataToPineconeIndex(req.body.indexName, req.files.pdfFiles, namespaceVectorCount, req.body.namespace)
     res.sendJson({ type: __constants.RESPONSE_MESSAGES.SUCCESS, data: data })

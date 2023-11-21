@@ -1,3 +1,4 @@
+const __constants = require('../../config/constants')
 const { PineconeClient } = require('@pinecone-database/pinecone')
 const pdfParse = require('pdf-parse')
 const pinecone = new PineconeClient()
@@ -99,21 +100,31 @@ class Pinecone {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
-  async getNumberOfVectorsInNamespace (index_name, namespace) {
-    const index = pinecone.Index(index_name)
-    const indexDescription = await index.describeIndexStats({
-      describeIndexStatsRequest: {
-        filter: {}
+  async getNumberOfVectorsInNamespace(index_name, namespace) {
+    try {
+      const index = pinecone.Index(index_name)
+      const indexDescription = await index.describeIndexStats({
+        describeIndexStatsRequest: {
+          filter: {}
+        }
+      })
+      if(!indexDescription) throw {
+        type:  __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to get index description"
       }
-    })
-    let count = 0
-    for (const key in indexDescription.namespaces) {
-      if (key == namespace) {
-        count = indexDescription.namespaces[key].vectorCount
-        break
+      let count = 0
+      for (const key in indexDescription.namespaces) {
+        if (key == namespace) {
+          count = indexDescription.namespaces[key].vectorCount
+          break
+        }
       }
+      return count
+    } catch (err) {
+      console.log("Error in getNumberOfVectorsInNamespace::", err)
+      throw err
     }
-    return count
+
   }
 
   async pushDataToPineconeIndex (
@@ -128,7 +139,10 @@ class Pinecone {
       let rawData
       let sizeLimit = 10485760
       if (documentData.size > sizeLimit) {
-        throw "File size exceeds the maximum limit"
+        throw {
+          type:  __constants.RESPONSE_MESSAGES.File_SIZE_EXCEEDS,
+          err: "File size exceeds the maximum limit of 10 MB"
+        }
       }
       if (documentData.length != undefined) {
         for (let i = 0; i < documentData.length; i++) {
@@ -156,6 +170,10 @@ class Pinecone {
       const docs = await splitter.splitDocuments([
         new Document({ pageContent: langchainContext })
       ])
+      if (!docs) throw {
+        type: __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to split document"
+      }
       docs.forEach((doc) => {
         const num = count + 1;
         doc.id = num.toString();
@@ -199,12 +217,16 @@ class Pinecone {
           vectors: to_upsert,
           namespace: namespace
         }
-        await index.upsert({ upsertRequest })
+        const upsertData = await index.upsert({ upsertRequest })
+        if (!upsertData) throw {
+          type: __constants.RESPONSE_MESSAGES.NOT_FOUND,
+          err: "Failed to push data into pineconce"
+        }
         return 'Successfully Uploaded'
       }
     } catch (err) {
-      console.log('Error in pushDataToPinecone function :: err', err.message)
-      throw new Error(err)
+      console.log('Error in pushDataToPineconeIndex::', err)
+      throw err
     }
   }
 
