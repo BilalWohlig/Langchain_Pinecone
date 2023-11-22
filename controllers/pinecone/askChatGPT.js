@@ -26,11 +26,11 @@ const authorize = require('../../middlewares/auth/authentication')
 const validationSchema = {
   type: 'object',
   required: true,
+  additionalProperties: false,
   properties: {
-    indexName: { type: 'string', required: true, minLength: 3 },
-    question: { type: 'string', required: true, minLength: 3 },
-    namespace: { type: 'string', required: true, minLength: 3 },
-    contextNamespace: { type: 'string', required: true, minLength: 3 }
+    indexName: { type: 'string', required: true, minLength: 3, maxLength:30  },
+    question: { type: 'string', required: true, minLength: 3, },
+    namespace: { type: 'string', required: true, minLength: 3, maxLength:30  }
   }
 }
 const validation = (req, res, next) => {
@@ -41,16 +41,10 @@ const askChatGPT = async (req, res) => {
     const contexts = await Pinecone.getRelevantContexts(
       req.body.indexName,
       req.body.question,
-      req.body.contextNamespace
-    )
-    const context = await Pinecone.createPrompt(
-      req.body.indexName,
-      contexts.docContexts,
-      contexts.queryEmbedding,
       req.body.namespace
     )
-    console.log(context)
-    const data = await Pinecone.askChatGPT(context, req.body.question)
+    
+    const data = await Pinecone.askChatGPT(contexts.docContexts, req.body.question)
     const answer = data.choices[0].message.content
     res.sendJson({
       type: __constants.RESPONSE_MESSAGES.SUCCESS,

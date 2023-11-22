@@ -1,3 +1,4 @@
+const __constants = require('../../config/constants')
 const { PineconeClient } = require('@pinecone-database/pinecone')
 const pdfParse = require('pdf-parse')
 const pinecone = new PineconeClient()
@@ -45,14 +46,19 @@ class Pinecone {
     }
   }
 
-  async deleteAllVectorsFromNamespace (indexName, namespace) {
-    const index = pinecone.Index(indexName)
-    console.log('Hey')
-    await index.delete1({
-      namespace: namespace,
-      deleteAll: true
-    })
-    return `Successfully Deleted All Vectors from Namespace ${namespace}`
+  async deleteAllVectorsFromNamespace(indexName, namespace) {
+    try {
+      const index = pinecone.Index(indexName)
+      await index.delete1({
+        namespace: namespace,
+        deleteAll: true
+      })
+      return `Successfully Deleted All Vectors from Namespace ${namespace}`
+    } catch (err) {
+      console.log("Error in deleteAllVectorsFromNamespace::", err)
+      throw err
+    }
+
   }
 
   async getIndex (index_name) {
@@ -99,21 +105,31 @@ class Pinecone {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
-  async getNumberOfVectorsInNamespace (index_name, namespace) {
-    const index = pinecone.Index(index_name)
-    const indexDescription = await index.describeIndexStats({
-      describeIndexStatsRequest: {
-        filter: {}
+  async getNumberOfVectorsInNamespace(index_name, namespace) {
+    try {
+      const index = pinecone.Index(index_name)
+      const indexDescription = await index.describeIndexStats({
+        describeIndexStatsRequest: {
+          filter: {}
+        }
+      })
+      if(!indexDescription) throw {
+        type:  __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to get index description"
       }
-    })
-    let count = 0
-    for (const key in indexDescription.namespaces) {
-      if (key == namespace) {
-        count = indexDescription.namespaces[key].vectorCount
-        break
+      let count = 0
+      for (const key in indexDescription.namespaces) {
+        if (key == namespace) {
+          count = indexDescription.namespaces[key].vectorCount
+          break
+        }
       }
+      return count
+    } catch (err) {
+      console.log("Error in getNumberOfVectorsInNamespace::", err)
+      throw err
     }
-    return count
+
   }
 
   async pushDataToPineconeIndex (
@@ -126,6 +142,13 @@ class Pinecone {
       let count = vectorCount
       const data = []
       let rawData
+      let sizeLimit = 10485760
+      if (documentData.size > sizeLimit) {
+        throw {
+          type:  __constants.RESPONSE_MESSAGES.File_SIZE_EXCEEDS,
+          err: "File size exceeds the maximum limit of 10 MB"
+        }
+      }
       if (documentData.length != undefined) {
         for (let i = 0; i < documentData.length; i++) {
           const doc = documentData[i]
@@ -146,12 +169,16 @@ class Pinecone {
       const batch_size = 50
       const langchainContext = data.join(' ')
       const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
+        chunkSize: 3000,
         chunkOverlap: 200
       })
       const docs = await splitter.splitDocuments([
         new Document({ pageContent: langchainContext })
       ])
+      if (!docs) throw {
+        type: __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to split document"
+      }
       docs.forEach((doc) => {
         const num = count + 1;
         doc.id = num.toString();
@@ -195,12 +222,16 @@ class Pinecone {
           vectors: to_upsert,
           namespace: namespace
         }
-        await index.upsert({ upsertRequest })
+        const upsertData = await index.upsert({ upsertRequest })
+        if (!upsertData) throw {
+          type: __constants.RESPONSE_MESSAGES.NOT_FOUND,
+          err: "Failed to push data into pineconce"
+        }
         return 'Successfully Uploaded'
       }
     } catch (err) {
-      console.log('Error in pushDataToPinecone function :: err', err.message)
-      throw new Error(err)
+      console.log('Error in pushDataToPineconeIndex::', err)
+      throw err
     }
   }
 
@@ -211,26 +242,34 @@ class Pinecone {
         model: 'text-embedding-ada-002',
         input: question
       })
+      if(!response) throw {
+        type:  __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to create embeddings of question"
+      }
+
       const xq = response.data.data[0].embedding
       response = await index.query({
         queryRequest: {
           namespace: namespace,
           vector: xq,
-          topK: 2,
+          topK: 5,
           includeMetadata: true,
           // includeValues: true
         }
       })
       
       const contexts = response.matches.map((match) => match.metadata.context)
+      const clubContext = contexts.filter(function (str) {
+        return str !== undefined;
+      }).join('');
       return {
         queryEmbedding: xq,
-        docContexts: contexts,
+        docContexts: clubContext,
         namespace: namespace
       }
-    } catch (error) {
-      console.log('Error in getRelevantContexts function :: err', error)
-      throw new Error(error)
+    } catch (err) {
+      console.log('Error in getRelevantContexts::', err)
+      throw err
     }
   }
 
@@ -316,32 +355,36 @@ class Pinecone {
   }
 
   async askChatGPT (context, question) {
-    const response = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'Answer the question based on the context below'
-        },
-        {
-          role: 'user',
-          content: `Context: ${context}
-                    Question: ${question}`
-        },
-        {
-          role: 'assistant',
-          content: 'Answer: '
-        }
-      ]
-    })
-    // const response = await openai.createCompletion({
-    //   model: "text-davinci-003",
-    //   prompt: `${prompt}`,
-    //   max_tokens: 500,
-    //   temperature: 0,
-    //   top_p: 1,
-    // });
-    return response.data
+    try {
+      const response = await openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that provides information base on give context.'
+          },
+          {
+            role: 'user',
+            content: `Context: ${context}\nQuestion: ${question}`
+          }
+        ]
+      })
+      if(!response) throw {
+        type:  __constants.RESPONSE_MESSAGES.NOT_FOUND,
+        err: "Failed to get information form openai"
+      }
+      // const response = await openai.createCompletion({
+      //   model: "text-davinci-003",
+      //   prompt: `${prompt}`,
+      //   max_tokens: 500,
+      //   temperature: 0,
+      //   top_p: 1,
+      // });
+      return response.data
+    } catch (err) {
+      throw err
+    }
+    
   }
 }
 

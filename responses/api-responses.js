@@ -54,6 +54,11 @@ module.exports = {
     code: 4033,
     message: 'File size or pixel is less than expected'
   },
+  File_SIZE_EXCEEDS:{
+    status_code: 400,
+    code: 4033,
+    message: 'File size exceeds the maximum limit'
+  },
   SERVER_ERROR: {
     status_code: 500,
     code: 5000,
